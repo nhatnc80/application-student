@@ -1,20 +1,137 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Phân tích LMS - Cầu lông lớp 10</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Chart.js để vẽ biểu đồ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<script src="js/supabase.js"></script>
-<script src="js/auth-guard.js"></script>
-<script src="js/ai.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f1f5f9;
+      padding: 30px;
+    }
+    h1 { text-align: center; margin-bottom: 30px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+    th { background: #667eea; color: white; }
+    .chart-container { width: 100%; max-width: 800px; margin: auto; }
+    .error { color: red; text-align: center; }
+  </style>
+</head>
+<body>
+
+<h1>📊 Phân tích kết quả học tập - LMS Cầu lông lớp 10</h1>
+<div id="msg" class="error"></div>
+
+<h2>Bảng tiến độ học sinh</h2>
+<table id="progressTable">
+  <thead>
+    <tr>
+      <th>Học sinh</th>
+      <th>Email</th>
+      <th>Bài đã xem (%)</th>
+      <th>Bài đã nộp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Dữ liệu sẽ đổ vào đây -->
+  </tbody>
+</table>
+
+<h2>Biểu đồ tiến độ học sinh</h2>
+<div class="chart-container">
+  <canvas id="progressChart"></canvas>
+</div>
 
 <script>
-requireLogin("student");
+const SUPABASE_URL = "https://zpvhxuwwgrtqbgziylbl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_u0kVgF9XCLTk5tD9M_xj9w_9lKguAgf";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function loadAnalysis() {
+  const msg = document.getElementById("msg");
+
+  // Chỉ cho phép teacher xem
+  const role = localStorage.getItem("role");
+  if (role !== "teacher") {
+    msg.innerText = "⚠️ Chỉ giáo viên mới được truy cập trang này!";
+    return;
+  }
+
+  try {
+    // Lấy danh sách học sinh
+    const { data: students, error: studentError } = await sb
+      .from("students")
+      .select("student_id, name, email");
+    if (studentError) throw studentError;
+
+    // Lấy kết quả nộp bài và video xem
+    const { data: progressData, error: progressError } = await sb
+      .from("submissions")
+      .select("student_id, lesson_id, submitted, video_watched_percent");
+    if (progressError) throw progressError;
+
+    const tbody = document.querySelector("#progressTable tbody");
+    tbody.innerHTML = "";
+
+    const labels = [];
+    const watchedPercentData = [];
+
+    students.forEach(student => {
+      const studentProgress = progressData.filter(p => p.student_id === student.student_id);
+      const totalLessons = studentProgress.length;
+      const watchedPercent = studentProgress.reduce((acc, p) => acc + (p.video_watched_percent || 0), 0) / (totalLessons || 1);
+      const submittedCount = studentProgress.filter(p => p.submitted).length;
+
+      // Thêm dòng bảng
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${student.name}</td>
+        <td>${student.email}</td>
+        <td>${watchedPercent.toFixed(1)}</td>
+        <td>${submittedCount}</td>
+      `;
+      tbody.appendChild(tr);
+
+      labels.push(student.name);
+      watchedPercentData.push(watchedPercent.toFixed(1));
+    });
+
+    // Vẽ biểu đồ
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Phần trăm video đã xem (%)',
+          data: watchedPercentData,
+          backgroundColor: '#667eea'
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true, max: 100 }
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error(err);
+    msg.innerText = "❌ Lỗi khi tải dữ liệu!";
+  }
+}
+
+// Load khi mở trang
+loadAnalysis();
 </script>
 
-<video id="video" controls width="400"></video>
-<h3 id="result"></h3>
-
-<script>
-const params = new URLSearchParams(window.location.search);
-const video_id = params.get("video_id");
-
-loadAndAnalyze(video_id);
-</script>
+</body>
+</html>
