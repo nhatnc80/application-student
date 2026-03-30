@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Lesson</title>
+<title>Bài học</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -44,6 +44,7 @@ button.active {
 
   <video id="video" width="100%" controls>
     <source src="loikhuyenchuyengia.mp4" type="video/mp4">
+    Trình duyệt của bạn không hỗ trợ video.
   </video>
 
   <br><br>
@@ -54,15 +55,17 @@ button.active {
 </div>
 
 <script>
-const sb = supabase.createClient(
-  "https://zpvhxuwwgrtqbgziylbl.supabase.co",
-  "sb_publishable_u0kVgF9XCLTk5tD9M_xj9w_9lKguAgf"
-);
+const SUPABASE_URL = "https://zpvhxuwwgrtqbgziylbl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_u0kVgF9XCLTk5tD9M_xj9w_9lKguAgf";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 🔥 CHECK LOGIN
 const student_id = localStorage.getItem("student_id");
-if (!student_id) {
-  alert("Vui lòng đăng nhập");
+const role = localStorage.getItem("role");
+
+if (!student_id || role !== "student") {
+  alert("Vui lòng đăng nhập học sinh để xem bài học!");
   window.location.href = "login.html";
 }
 
@@ -70,53 +73,70 @@ if (!student_id) {
 const params = new URLSearchParams(window.location.search);
 const lesson_id = params.get("id");
 
+if (!lesson_id) {
+  alert("Lesson không xác định!");
+  window.location.href = "index.html";
+}
+
 // 🔥 VIDEO CONTROL
 const video = document.getElementById("video");
 const btn = document.getElementById("submitBtn");
 
-let watched = 0;
 let lastTime = 0;
 let completed = false;
 
-// 🔥 CHỐNG tua nhanh
+// 🔥 CHỐNG tua nhanh (chỉ cho tua lùi)
 video.addEventListener("seeking", () => {
-  if (video.currentTime > lastTime + 2) {
+  if (video.currentTime > lastTime) {
     video.currentTime = lastTime;
   }
 });
 
-video.addEventListener("timeupdate", () => {
-  if (video.currentTime > lastTime) {
-    watched += video.currentTime - lastTime;
-    lastTime = video.currentTime;
-  }
+// 🔥 CẬP NHẬT tiến trình
+video.addEventListener("timeupdate", async () => {
+  lastTime = Math.max(lastTime, video.currentTime);
+  const percent = (lastTime / video.duration) * 100;
 
-  const percent = (video.currentTime / video.duration) * 100;
-
-  // 👉 Điều kiện hoàn thành (≥ 90%)
   if (percent >= 90 && !completed) {
     completed = true;
-
     btn.disabled = false;
     btn.classList.add("active");
-
     console.log("✅ Đã xem đủ video");
 
-    // 🔥 lưu DB
-    sb.from("lesson_progress").insert({
-      student_id: student_id,
-      lesson_id: lesson_id,
-      duration: Math.floor(watched),
-      completed: true
-    });
+    // 🔥 Lưu lesson_progress
+    try {
+      const { error } = await sb.from("lesson_progress").upsert({
+        student_id,
+        lesson_id,
+        duration: Math.floor(lastTime),
+        completed: true
+      });
+      if (error) console.error("Lỗi lesson_progress:", error);
+    } catch (err) {
+      console.error(err);
+    }
   }
 });
 
 // 🔥 NỘP BÀI
-function submitLesson() {
-  alert("🎉 Nộp bài thành công!");
-  
-  window.location.href = "index.html";
+async function submitLesson() {
+  try {
+    // 🔥 Lưu trạng thái nộp bài
+    const { error } = await sb.from("submissions").upsert({
+      student_id,
+      lesson_id,
+      submitted: true,
+      submit_time: new Date().toISOString()
+    });
+    if (error) throw error;
+
+    alert("🎉 Nộp bài thành công!");
+    window.location.href = "index.html";
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Lỗi khi nộp bài, thử lại!");
+  }
 }
 </script>
 
