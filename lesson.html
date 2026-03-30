@@ -40,7 +40,7 @@ button.active {
 <body>
 
 <div class="container">
-  <h1 id="title">Bài học</h1>
+  <h1 id="title">Bài học: Lời khuyên chuyên gia</h1>
 
   <video id="video" width="100%" controls>
     <source src="loikhuyenchuyengia.mp4" type="video/mp4">
@@ -70,12 +70,10 @@ if (!student_id || role !== "student") {
 }
 
 // 🔥 LẤY lesson_id
-const params = new URLSearchParams(window.location.search);
-const lesson_id = params.get("id");
-
+// Nếu không có query string, tự gán theo video
+let lesson_id = new URLSearchParams(window.location.search).get("id");
 if (!lesson_id) {
-  alert("Lesson không xác định!");
-  window.location.href = "index.html";
+  lesson_id = "loikhuyenchuyengia"; // ID mặc định cho video này
 }
 
 // 🔥 VIDEO CONTROL
@@ -120,6 +118,11 @@ video.addEventListener("timeupdate", async () => {
 
 // 🔥 NỘP BÀI
 async function submitLesson() {
+  if (!completed) {
+    alert("❌ Bạn cần xem ít nhất 90% video trước khi nộp bài!");
+    return;
+  }
+
   try {
     // 🔥 Lưu trạng thái nộp bài
     const { error } = await sb.from("submissions").upsert({
@@ -131,7 +134,7 @@ async function submitLesson() {
     if (error) throw error;
 
     alert("🎉 Nộp bài thành công!");
-    window.location.href = "main.html";
+    window.location.href = "index.html";
 
   } catch (err) {
     console.error(err);
