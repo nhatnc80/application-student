@@ -1,0 +1,40 @@
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth-guard.js"></script>
+
+<script>
+requireLogin("student");
+</script>
+
+<h2>Upload video</h2>
+
+<input type="file" id="file">
+<button onclick="upload()">Upload</button>
+
+<script>
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  const student_id = localStorage.getItem("student_id");
+
+  const fileName = Date.now() + "_" + file.name;
+
+  await sb.storage.from("videos").upload(fileName, file);
+
+  const { data: urlData } = sb.storage
+    .from("videos")
+    .getPublicUrl(fileName);
+
+  const { data } = await sb.from("videos")
+    .insert([
+      {
+        student_id: student_id,
+        video_url: urlData.publicUrl,
+        lesson_id: "lesson1"
+      }
+    ])
+    .select()
+    .single();
+
+  window.location.href = "analysis.html?video_id=" + data.id;
+}
+</script>
