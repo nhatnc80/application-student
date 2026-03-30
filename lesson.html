@@ -3,16 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Bài học</title>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
 body {
   font-family: Arial;
   background: #f5f7fb;
   padding: 20px;
 }
-
 .container {
   max-width: 900px;
   margin: auto;
@@ -20,7 +17,6 @@ body {
   padding: 30px;
   border-radius: 12px;
 }
-
 button {
   padding: 12px 20px;
   border: none;
@@ -29,18 +25,16 @@ button {
   color: white;
   cursor: not-allowed;
 }
-
 button.active {
   background: green;
   cursor: pointer;
 }
 </style>
 </head>
-
 <body>
 
 <div class="container">
-  <h1 id="title">Bài học: Lời khuyên chuyên gia</h1>
+  <h1 id="title">Bài học</h1>
 
   <video id="video" width="100%" controls>
     <source src="loikhuyenchuyengia.mp4" type="video/mp4">
@@ -49,18 +43,15 @@ button.active {
 
   <br><br>
 
-  <button id="submitBtn" disabled onclick="submitLesson()">
-    Nộp bài
-  </button>
+  <button id="submitBtn" disabled onclick="submitLesson()">Nộp bài</button>
 </div>
 
 <script>
 const SUPABASE_URL = "https://zpvhxuwwgrtqbgziylbl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_u0kVgF9XCLTk5tD9M_xj9w_9lKguAgf";
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 🔥 CHECK LOGIN
+// 🔥 Kiểm tra login học sinh
 const student_id = localStorage.getItem("student_id");
 const role = localStorage.getItem("role");
 
@@ -69,28 +60,29 @@ if (!student_id || role !== "student") {
   window.location.href = "login.html";
 }
 
-// 🔥 LẤY lesson_id
-// Nếu không có query string, tự gán theo video
-let lesson_id = new URLSearchParams(window.location.search).get("id");
+// 🔥 Lấy lesson_id từ URL
+const params = new URLSearchParams(window.location.search);
+const lesson_id = params.get("id");
+
 if (!lesson_id) {
-  lesson_id = "loikhuyenchuyengia"; // ID mặc định cho video này
+  alert("Lesson không xác định!");
+  window.location.href = "index.html";
 }
 
-// 🔥 VIDEO CONTROL
+// 🔥 Video control
 const video = document.getElementById("video");
 const btn = document.getElementById("submitBtn");
-
 let lastTime = 0;
 let completed = false;
 
-// 🔥 CHỐNG tua nhanh (chỉ cho tua lùi)
+// Chống tua nhanh (chỉ cho tua lùi)
 video.addEventListener("seeking", () => {
   if (video.currentTime > lastTime) {
     video.currentTime = lastTime;
   }
 });
 
-// 🔥 CẬP NHẬT tiến trình
+// Cập nhật tiến trình video
 video.addEventListener("timeupdate", async () => {
   lastTime = Math.max(lastTime, video.currentTime);
   const percent = (lastTime / video.duration) * 100;
@@ -108,7 +100,8 @@ video.addEventListener("timeupdate", async () => {
         lesson_id,
         duration: Math.floor(lastTime),
         completed: true
-      });
+      }, { onConflict: ['student_id', 'lesson_id'] });
+
       if (error) console.error("Lỗi lesson_progress:", error);
     } catch (err) {
       console.error(err);
@@ -116,7 +109,7 @@ video.addEventListener("timeupdate", async () => {
   }
 });
 
-// 🔥 NỘP BÀI
+// Nộp bài
 async function submitLesson() {
   if (!completed) {
     alert("❌ Bạn cần xem ít nhất 90% video trước khi nộp bài!");
@@ -124,21 +117,20 @@ async function submitLesson() {
   }
 
   try {
-    // 🔥 Lưu trạng thái nộp bài
     const { error } = await sb.from("submissions").upsert({
       student_id,
       lesson_id,
       submitted: true,
       submit_time: new Date().toISOString()
-    });
+    }, { onConflict: ['student_id', 'lesson_id'] });
+
     if (error) throw error;
 
     alert("🎉 Nộp bài thành công!");
-    window.location.href = "upload.html";
-
+    window.location.href = "index.html";
   } catch (err) {
-    console.error(err);
-    alert("❌ Lỗi khi nộp bài, thử lại!");
+    console.error("Lỗi nộp bài:", err);
+    alert("❌ Lỗi khi nộp bài, kiểm tra console!");
   }
 }
 </script>
